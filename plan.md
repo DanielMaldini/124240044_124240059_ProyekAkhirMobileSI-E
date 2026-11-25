@@ -1,212 +1,263 @@
-# GutLog — Final Project Plan
+# GutLog — Panduan Final Project (Simple & Siap Kerja)
 
-**Mata Kuliah:** Praktikum Teknologi dan Pemrograman Mobile  
 **Tim:** 2 Orang (Orang A & Orang B)  
-**Target Modul:** Modul 2 s.d. Modul 7 (Wajib) + Modul 8 GetX (Bonus)
-
-> **Tujuan dokumen ini:** Menjadi panduan bersama bagi Orang A dan Orang B agar bisa bekerja **paralel tanpa bentrok di GitHub**, kodenya **sesuai materi praktikum**, **mudah dipahami saat tes *live coding***, dan **selesai tepat waktu**.
-
----
-
-## 1. Ringkasan Konsep Aplikasi
-
-**GutLog** adalah aplikasi *Personal Digestive Health Diary* berbasis waktu dan lokasi. Pengguna mencatat kapan ia BAB (`dateTime`), catatan bebas (`note`), dan lokasinya (`lat`, `lng`, `address`) dengan opsi **"catat tanpa lokasi"**.
-
-Dari catatan tersebut, pengguna bisa:
-- Melihat **ringkasan periodik** (*Hari ini / 7 hari / 30 hari*) dan **riwayat per tanggal**.
-- Membuka lokasi catatan langsung di **Google Maps**.
-- Mengatur **pengingat harian** (*scheduled notification*).
-
-Aplikasi dibingkai secara netral sebagai pencatat pola kebiasaan/kesehatan pencernaan, **bukan alat diagnosis medis** (dilengkapi *disclaimer*).
+**Target Modul:** Modul 2–7 (Wajib) + Modul 8 GetX (Bonus)  
+**Repo:** `124240044_124240059_ProyekAkhirMobileSI-E`
 
 ---
 
-## 2. Keputusan Desain & Penyederhanaan Final
+## 1. Konsep Aplikasi (Singkat)
 
-Agar kode bersih, minim bug, dan mudah dijelaskan saat *live coding*, kita **memangkas** hal-hal yang bikin rumit tanpa menambah nilai rubrik:
+**GutLog** adalah *Personal Digestive Health Diary* berbasis waktu dan lokasi:
+- Catat kejadian BAB: **tanggal & jam** (`dateTime`), **catatan bebas** (`note`), dan **lokasi** (`lat`, `lng`, `address` — ada opsi *"catat tanpa lokasi"*).
+- **Ringkasan periodik** (*Hari ini / 7 hari / 30 hari*) + **filter per tanggal** di halaman Riwayat.
+- Tombol **"Lihat di Google Maps"** di halaman Detail (pakai `url_launcher`).
+- **Pengingat harian** (*scheduled notification*) + tombol uji notifikasi.
+- **Disclaimer:** *"GutLog bukan alat diagnosis medis."* (di Profil & Form).
 
-| Tetap Dipakai | Dihapus / Tidak Dibuat |
-|---|---|
-| Tanggal & jam (`dateTime`), catatan (`note`), lokasi (`lat`, `lng`, `address`) | Input bentuk (Skala Bristol / `data/bristol.dart`), warna (`color`), dan nyeri (`hasPain`) |
-| Ringkasan periodik angka (*Hari ini / 7 hari / 30 hari*) | Grafik / chart (`fl_chart`) atau kalender heatmap |
-| Opsi *"catat tanpa lokasi"* saat buat catatan baru | Hapus lokasi pada catatan lama saat mode Edit |
-| Password teks biasa (sesuai Modul 3 & 6) | Hash password dengan package `crypto` |
-| Scheduled notification dari `ReminderPage` + tombol notif uji | Reschedule otomatis setiap `main.dart` dibuka |
-| `Navigator` (Modul 4) + `GetX` State/DI (Modul 8) | `GetPage`, `Bindings`, `Get.toNamed`, `Get.arguments` |
-| `ListTile` langsung di `HistoryPage` | Pemisahan widget `entry_card.dart` |
-
-**Perbaikan teknis yang ditambahkan dari hasil review modul:**
-1. Tambahkan `dispose()` untuk semua `TextEditingController` (pola Modul 6).
-2. Tambahkan `.timeout(const Duration(seconds: 5))` pada `http.get` di `GeocodingService` agar loading tidak menggantung saat internet lambat.
-3. Tambahkan `cancelNotification(int id)` di `NotificationService`.
+**Yang sengaja TIDAK dibuat (biar simpel & aman saat live coding):**
+Tidak ada input bentuk (Bristol), warna, nyeri, grafik/chart, hapus lokasi saat edit, hash `crypto`, reschedule otomatis di `main.dart`, maupun `GetPage`/`Bindings` (navigasi tetap pakai `Navigator` Modul 4).
 
 ---
 
-## 3. Palet Warna & Tampilan (`ThemeData`)
+## 2. Palet Warna (Pasang di `ThemeData` pada `main.dart`)
 
-Tema warna dipasang terpusat di `ThemeData` pada `main.dart` agar seragam dan tidak perlu menulis ulang kode warna di setiap halaman:
-
-| Peran | Nama Warna | Kode Hex | Pemakaian di Flutter |
-|---|---|---|---|
-| Background utama | Cream | `#F8F7F2` | `scaffoldBackgroundColor: Color(0xFFF8F7F2)` |
-| Warna utama & tombol | Sage Green | `#718B73` | `AppBar`, `ElevatedButton`, `FloatingActionButton`, active tab `BottomNavigationBar` (`foregroundColor: Colors.white` + teks tombol `FontWeight.w600` agar kontras jelas) |
-| Latar alternatif | Warm Off-White | `#E8EEE5` | `Card` ringkasan periodik, `Card` disclaimer, container info lokasi |
-| Teks utama | Dark Charcoal | `#303A32` | Judul, isi teks, ikon utama (`Colors.grey[700]` untuk teks sekunder/subtitle) |
-| Pesan error | Merah | — | `Colors.red` pada `SnackBar` gagal login/register |
-
----
-
-## 4. Pemetaan ke Materi Praktikum (Modul 2–8)
-
-| Modul | Konsep & Pola yang Dipakai | Lokasi di GutLog |
+| Peran | Hex | Pemakaian |
 |---|---|---|
-| **Modul 2 (Widget)** | `Scaffold`, `AppBar`, `Column`, `Row`, `SizedBox`, `Padding`, `Card`, `Text`, `TextField`, `ElevatedButton`, `TextButton`, `IconButton`, `ListView.builder`, `ListTile`, `SingleChildScrollView` (+ `SwitchListTile`, `AlertDialog`) | Semua halaman di `view/pages/` |
-| **Modul 3 (State & Data)** | `StatelessWidget`, `StatefulWidget`, `setState`, `TextEditingController` (+ `dispose`), Model class, conditional rendering, `SnackBar` | `LoginPage`, `RegisterPage`, `RootPage`, `EntryFormPage`, `EntryDetailPage`, `ReminderPage` |
-| **Modul 4 (Navigation)** | `Navigator.push`, `pop`, `pushReplacement`, `pushAndRemoveUntil`, passing data lewat constructor, `BottomNavigationBar` | Alur Auth → `RootPage` → `HistoryPage`/`ProfilePage` → `EntryDetailPage`/`EntryFormPage`/`ReminderPage` |
-| **Modul 5 (HTTP)** | `http.get`, `Uri.parse`, `statusCode == 200`, `jsonDecode`, `async/await`, `try-catch`, `.timeout()`, static method service, loading state | `GeocodingService.reverse()` (Nominatim OpenStreetMap) |
-| **Modul 6 (Local Storage)** | `Hive.initFlutter`, `registerAdapter`, `openBox`, `@HiveType`, `@HiveField`, `HiveObject` (`save()`, `delete()`), `SharedPreferences` (`getString`, `setString`, `remove`, `getBool`, `setBool`, `getInt`, `setInt`), cek `mounted` | `models/*`, `AuthController`, `LogController`, `ReminderPage` |
-| **Modul 7 (Notification & LBS)** | `NotificationService` (Singleton, `init`, `showInstantNotification`, `scheduleNotification`), `LocationService` (`isLocationServiceEnabled`, `checkPermission`, `requestPermission`, `getCurrentPosition`), `showDatePicker`, `showTimePicker`, konfigurasi `build.gradle.kts` & `AndroidManifest.xml` | `services/notification_service.dart`, `services/location_service.dart`, `EntryFormPage`, `HistoryPage`, `ReminderPage` |
-| **Modul 8 (GetX — Bonus)** | `GetMaterialApp`, `GetxController`, `onInit()`, `.obs`, `Rxn`, `Obx()`, `Get.put(..., permanent: true)`, `Get.find()` | `main.dart`, `AuthController`, `LogController`, `HistoryPage`, `LoginPage`, `ProfilePage`, `EntryFormPage`, `EntryDetailPage` |
-
-> **Catatan Live Coding (Jika diminta melepas GetX):** Karena navigasi sudah memakai `Navigator` (Modul 4), melepas GetX sangat mudah: ganti `GetMaterialApp` → `MaterialApp`, jadikan `AuthController` & `LogController` class Singleton biasa tanpa `GetxController`/`.obs`, dan ganti `Obx` di `HistoryPage` menjadi `ValueListenableBuilder(valueListenable: Hive.box<LogEntry>('entries').listenable(), ...)` sesuai Modul 6.
+| Background utama (Cream) | `#F8F7F2` | `scaffoldBackgroundColor: Color(0xFFF8F7F2)` |
+| Warna utama & tombol (Sage Green) | `#718B73` | `AppBar`, `ElevatedButton`, `FAB`, active `BottomNavigationBar` (`foregroundColor: Colors.white`, teks tombol `FontWeight.w600`) |
+| Latar alternatif (Warm Off-White) | `#E8EEE5` | `Card` ringkasan periodik, `Card` disclaimer, box info lokasi |
+| Teks utama (Dark Charcoal) | `#303A32` | Judul, teks isi, ikon utama (`Colors.grey[700]` untuk subtitle) |
+| Error | Merah | `Colors.red` pada `SnackBar` gagal login/register |
 
 ---
 
-## 5. Struktur Folder Final
+## 3. Pembagian Kerja & Langkah Paralel (1 File = 1 Pemilik)
 
-```text
-lib/
-├── main.dart
-├── models/
-│   ├── app_user.dart              # + app_user.g.dart (commit ke Git!)
-│   └── log_entry.dart             # + log_entry.g.dart (commit ke Git!)
-├── utils/
-│   └── format.dart                # formatDateTime(DateTime dt)
-├── services/
-│   ├── location_service.dart      # GPS (Geolocator)
-│   ├── geocoding_service.dart     # HTTP Nominatim + timeout
-│   └── notification_service.dart  # Local notification + cancelNotification
-├── controller/
-│   ├── auth_controller.dart       # GetxController (register, login, sesi, logout)
-│   └── log_controller.dart        # GetxController (CRUD, filter tanggal, hitung periodik)
-└── view/
-    └── pages/
-        ├── login_page.dart
-        ├── register_page.dart
-        ├── root_page.dart         # BottomNavigationBar (Riwayat & Profil)
-        ├── history_page.dart      # Ringkasan periodik + filter tanggal + daftar riwayat
-        ├── profile_page.dart      # Info user, disclaimer, tombol ke ReminderPage, logout
-        ├── entry_form_page.dart   # Tambah & edit (tanggal/jam, catatan, switch lokasi)
-        ├── entry_detail_page.dart # Detail catatan, tombol Google Maps, edit & hapus
-        └── reminder_page.dart     # Atur jam pengingat, on/off, tombol notif uji
+### Langkah 0 — Sync Awal (15 Menit Pertama, Orang A Dulu)
+1. **Orang A** isi `pubspec.yaml` (lihat Bagian 4.1) lalu jalankan `flutter pub get`.
+2. **Orang A** buat `models/app_user.dart`, `models/log_entry.dart` (lihat Bagian 4.2), lalu jalankan `dart run build_runner build` hingga muncul `*.g.dart`.
+3. **Orang A** buat `utils/format.dart` + kerangka kontrak method di `AuthController`, `LogController`, `NotificationService().init()`, `EntryFormPage({super.key, this.entry})`, `EntryDetailPage({super.key, required this.entry})`.
+4. **Orang A push ke `main`**, lalu **Orang B `git pull origin main`**.
+
+Setelah Langkah 0 selesai, **kalian kerja 100% paralel di branch masing-masing!**
+
+---
+
+### Checklist Orang A (Akun, Data, Riwayat & Tema)
+- **File milik A:** `pubspec.yaml`, `main.dart`, `models/*`, `utils/format.dart`, `controller/auth_controller.dart`, `controller/log_controller.dart`, `login_page.dart`, `register_page.dart`, `root_page.dart`, `history_page.dart`, `profile_page.dart`.
+- **Urutan kerja:**
+  1. **Gelombang 1 (`feat/a-auth`):**
+     - Setup `ThemeData` (palet warna), `Hive.initFlutter()`, `registerAdapter`, `openBox('users')` & `openBox('entries')`, `NotificationService().init()`, dan `Get.put(..., permanent: true)` di `main.dart`.
+     - Buat `AuthController` (`register`, `login`, `restoreSession`, `logout` pakai Hive `users` + `SharedPreferences` key `'sessionUser'`).
+     - Buat `LoginPage`, `RegisterPage` (ingat `dispose()` untuk `TextEditingController`), dan `RootPage` (`BottomNavigationBar`: Riwayat & Profil).
+  2. **Gelombang 2 (`feat/a-history`):**
+     - Buat `LogController` (CRUD `addEntry`, `updateEntry`, `deleteEntry` pakai `entry.save()`/`entry.delete()`, filter `username` pemilik, `filterDate`, `visibleEntries`, serta hitungan `todayCount`, `weekCount`, `monthCount`).
+     - Buat `HistoryPage` pakai `Obx`: tampilkan `Card` ringkasan periodik di atas, `ListView.builder` + `ListTile`, filter tanggal di `AppBar` (`showDatePicker` + tombol clear), dan `FAB` ke `EntryFormPage()`.
+  3. **Gelombang 3 (`feat/a-profile`):**
+     - Buat `ProfilePage`: tampilkan nama/username user, `Card` disclaimer medis, tombol menuju `ReminderPage()`, dan tombol Logout (`pushAndRemoveUntil` ke `LoginPage`).
+
+---
+
+### Checklist Orang B (Android, Service, Form, Detail & Notif)
+- **File milik B:** `android/app/build.gradle.kts`, `android/app/src/main/AndroidManifest.xml`, `services/location_service.dart`, `services/geocoding_service.dart`, `services/notification_service.dart`, `entry_form_page.dart`, `entry_detail_page.dart`, `reminder_page.dart`.
+- **Urutan kerja:**
+  1. **Gelombang 1 (`feat/b-android-lbs`):**
+     - Pasang konfigurasi desugaring di `build.gradle.kts` dan permission + `<queries>` + 3 `<receiver>` di `AndroidManifest.xml` (copy dari Bagian 4.4).
+     - Buat `LocationService.getPosition()` (GPS + izin lokasi `Geolocator`).
+     - Buat `GeocodingService.reverse(lat, lng)` (HTTP Nominatim + `.timeout(Duration(seconds: 5))`).
+  2. **Gelombang 2 (`feat/b-form-detail`):**
+     - Buat `EntryFormPage({LogEntry? entry})`: 1 halaman untuk tambah & edit (`_isEditMode = widget.entry != null`). Isi: pilih tanggal & jam (`showDatePicker` + `showTimePicker`), `TextField` catatan (+ `dispose()`), `SwitchListTile` *"Catat lokasi saat ini"* (saat tambah baru), loading `_isSaving`, lalu panggil `LogController.addEntry` / `updateEntry`.
+     - Buat `EntryDetailPage({required LogEntry entry})`: tampilkan waktu, catatan, alamat/koordinat, tombol **"Lihat di Google Maps"** (hanya muncul jika `lat != null && lng != null`), tombol Edit di `AppBar`, dan tombol Hapus dengan `AlertDialog` konfirmasi → `LogController.deleteEntry`.
+  3. **Gelombang 3 (`feat/b-notif`):**
+     - Lengkapi `NotificationService`: `init()`, `showInstantNotification()`, `scheduleNotification()`, `cancelNotification(id)`.
+     - Buat `ReminderPage`: `SwitchListTile` nyala/mati, `ListTile` pilih jam (`showTimePicker`), simpan ke `SharedPreferences` (`reminderOn`, `reminderHour`, `reminderMinute`), plus tombol *"Kirim Notifikasi Uji"*.
+
+> **Tips Testing Lokal Sebelum Merge:** Orang B bisa ubah sementara `home:` di `main.dart` ke `EntryFormPage()` / `ReminderPage()` untuk mengetes tampilannya (**jangan di-commit**), lalu kembalikan sebelum push.
+
+---
+
+## 4. Snippet Wajib Siap Pakai (Copy-Paste Reference)
+
+### 4.1 `pubspec.yaml`
+```yaml
+dependencies:
+  flutter:
+    sdk: flutter
+  get: ^4.6.6                         # cek versi terbaru di pub.dev
+  http: ^1.6.0
+  shared_preferences: ^2.5.3
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  flutter_local_notifications: ^19.0.0
+  timezone: ^0.10.0
+  geolocator: ^13.0.0
+  url_launcher: ^6.3.1                # cek versi terbaru di pub.dev
+
+dev_dependencies:
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.8
 ```
 
+### 4.2 Models (Milik Orang A — Kontrak Bersama)
+```dart
+// lib/models/app_user.dart
+import 'package:hive/hive.dart';
+part 'app_user.g.dart';
+
+@HiveType(typeId: 0)
+class AppUser extends HiveObject {
+  @HiveField(0) String username;
+  @HiveField(1) String password;
+  @HiveField(2) String name;
+
+  AppUser({required this.username, required this.password, required this.name});
+}
+```
+
+```dart
+// lib/models/log_entry.dart
+import 'package:hive/hive.dart';
+part 'log_entry.g.dart';
+
+@HiveType(typeId: 1)
+class LogEntry extends HiveObject {
+  @HiveField(0) String username;   // pemilik catatan (otorisasi)
+  @HiveField(1) DateTime dateTime;
+  @HiveField(2) String note;
+  @HiveField(3) double? lat;       // null jika tanpa lokasi
+  @HiveField(4) double? lng;
+  @HiveField(5) String? address;   // hasil Nominatim, bisa null
+
+  LogEntry({
+    required this.username,
+    required this.dateTime,
+    required this.note,
+    this.lat,
+    this.lng,
+    this.address,
+  });
+}
+```
+Generate adapter: `dart run build_runner build` (lalu commit file `*.g.dart`).
+
+### 4.3 Kontrak `AuthController` & `LogController` (Dipakai Orang A & B)
+- **`AuthController`:**
+  - `final Rxn<AppUser> currentUser = Rxn<AppUser>();` → Orang B baca `Get.find<AuthController>().currentUser.value!.username` saat membuat `LogEntry`.
+  - `String? register(String username, String password, String name)`
+  - `Future<String?> login(String username, String password)`
+  - `Future<bool> restoreSession()`
+  - `Future<void> logout()`
+- **`LogController`:**
+  - `final RxList<LogEntry> entries = <LogEntry>[].obs;`
+  - `final Rxn<DateTime> filterDate = Rxn<DateTime>();`
+  - `List<LogEntry> get visibleEntries` (saring `filterDate` jika tidak null)
+  - `int get todayCount`, `int get weekCount` (7 hari terakhir), `int get monthCount` (30 hari terakhir)
+  - `void loadEntries()` (filter `e.username == currentUser.username`, urutkan terbaru dulu)
+  - `Future<void> addEntry(LogEntry entry)`
+  - `Future<void> updateEntry(LogEntry entry)` → `await entry.save(); loadEntries();`
+  - `Future<void> deleteEntry(LogEntry entry)` → `await entry.delete(); loadEntries();`
+
+### 4.4 Konfigurasi Android (Milik Orang B)
+
+**`android/app/build.gradle.kts`:**
+```kotlin
+android {
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+}
+```
+
+**`android/app/src/main/AndroidManifest.xml`:**
+```xml
+<!-- Di dalam <manifest>, di luar <application> -->
+<uses-permission android:name="android.permission.INTERNET"/>
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+<uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+
+<queries>
+    <intent>
+        <action android:name="android.intent.action.VIEW" />
+        <data android:scheme="https" />
+    </intent>
+</queries>
+
+<!-- Di dalam <application>, di bawah <activity> -->
+<receiver
+    android:exported="false"
+    android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+<receiver
+    android:exported="false"
+    android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+    <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED"/>
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+        <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+    </intent-filter>
+</receiver>
+<receiver
+    android:exported="false"
+    android:name="com.dexterous.flutterlocalnotifications.FlutterLocalNotificationsReceiver"/>
+```
+
+### 4.5 Signature Service & Google Maps (Milik Orang B)
+- **`LocationService.getPosition()` (`Future<Position?>`):** Cek `Geolocator.isLocationServiceEnabled()`, cek & minta izin `Geolocator.checkPermission()` / `requestPermission()`, return `null` jika ditolak/mati, atau `Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high))`.
+- **`GeocodingService.reverse(double lat, double lng)` (`Future<String?>`):**
+  ```dart
+  final uri = Uri.parse(
+    'https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lng&format=jsonv2',
+  );
+  final response = await http.get(uri, headers: {
+    'User-Agent': 'GutLogApp/1.0 (isi-email-tim@upnyk.ac.id)',
+  }).timeout(const Duration(seconds: 5));
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body);
+    return data['display_name'] as String?;
+  }
+  return null;
+  ```
+  *(Bungkus dengan `try-catch` yang me-return `null` jika offline/timeout).*
+- **Tombol Google Maps (`EntryDetailPage`):**
+  ```dart
+  final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+  await launchUrl(url, mode: LaunchMode.externalApplication);
+  ```
+- **`NotificationService`:** Singleton pattern (persis Modul 7), punya `init()`, `showInstantNotification({required String title, required String body})`, `scheduleNotification({required int id, required String title, required String body, required DateTime scheduledTime})`, dan `cancelNotification(int id)`. *(Cek parameter `notificationPlugin.cancel(id)` sesuai versi `19.0.0`).*
+
 ---
 
-## 6. Spesifikasi Data & Konfigurasi
+## 5. Aturan GitHub (Supaya Nilai Kontributor Aman)
 
-### 6.1 Penyimpanan Lokal
-- **Hive Box `users`:** Key = `username`, Value = `AppUser` (`username`, `password`, `name`).
-- **Hive Box `entries`:** Auto-increment key (`box.add`), Value = `LogEntry`:
-  - `@HiveField(0) String username` (otorisasi: tiap user hanya melihat catatannya sendiri)
-  - `@HiveField(1) DateTime dateTime`
-  - `@HiveField(2) String note`
-  - `@HiveField(3) double? lat`
-  - `@HiveField(4) double? lng`
-  - `@HiveField(5) String? address`
-  - *Field dibuat non-`final` dan extends `HiveObject` agar update & delete memakai `entry.save()` dan `entry.delete()` (aman saat list sedang difilter/diurutkan).*
-- **SharedPreferences:** `sessionUser` (String), `reminderOn` (bool), `reminderHour` (int), `reminderMinute` (int).
-
-### 6.2 `pubspec.yaml` & Android
-- Dependencies: `get`, `http: ^1.6.0`, `shared_preferences: ^2.5.3`, `hive: ^2.2.3`, `hive_flutter: ^1.1.0`, `flutter_local_notifications: ^19.0.0`, `timezone: ^0.10.0`, `geolocator: ^13.0.0`, `url_launcher`.
-- Dev dependencies: `hive_generator: ^2.0.1`, `build_runner: ^2.4.8`.
-- `android/app/build.gradle.kts`: aktifkan `isCoreLibraryDesugaringEnabled = true` dan `coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")`.
-- `AndroidManifest.xml`:
-  - Permissions: `INTERNET`, `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`, `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`.
-  - `<queries>` untuk `ACTION_VIEW` dengan `scheme="https"` (wajib untuk `url_launcher` Google Maps di Android 11+).
-  - 3 `<receiver>` notifikasi di dalam `<application>` (persis Modul 7).
+1. **Samakan email Git lokal dengan akun GitHub masing-masing:**
+   Cek lewat `git config user.email` — wajib sama persis dengan email di akun GitHub agar commit tercatat di tab *Contributors*.
+2. **Kerja di branch per gelombang:** contoh `feat/a-auth`, `feat/b-android-lbs`. Commit kecil tiap 1 file/fitur selesai, lalu merge / Pull Request ke `main`.
+3. **Selalu `git pull origin main`** sebelum buat branch baru.
 
 ---
 
-## 7. Pembagian Kerja Paralel & Kontributor GitHub
+## 6. Checklist Uji Coba & Live Coding
 
-Agar **grafik kontributor push di GitHub seimbang** dan **tidak ada konflik merge**, setiap file hanya punya **1 pemilik**.
+### Uji Coba Wajib (Utamakan di HP Fisik)
+- [ ] Register, login, tutup app total lalu buka lagi → tetap login.
+- [ ] Logout → tombol Back tidak bisa kembali ke halaman utama.
+- [ ] Dua akun berbeda → tidak saling melihat catatan.
+- [ ] Tambah catatan dengan lokasi → alamat muncul; jika GPS/internet mati → tetap tersimpan (fallback koordinat/tanpa lokasi).
+- [ ] Tambah catatan dengan opsi *"catat tanpa lokasi"* → tombol Google Maps tidak tampil di Detail.
+- [ ] Filter tanggal & ringkasan periodik (*Hari ini / 7 hari / 30 hari*) akurat.
+- [ ] Edit & hapus catatan (termasuk saat filter aktif) bekerja tepat.
+- [ ] Tombol Google Maps membuka lokasi yang benar.
+- [ ] Notifikasi uji langsung & notifikasi terjadwal muncul.
 
-### 7.1 Kepemilikan File
-
-| Orang A (Akun, Data, Riwayat & Tema) | Orang B (Android, Service, Form, Detail & Notif) |
-|---|---|
-| `pubspec.yaml` | `android/app/build.gradle.kts` |
-| `main.dart` | `android/app/src/main/AndroidManifest.xml` |
-| `models/app_user.dart` (+ `.g.dart`) | `services/location_service.dart` |
-| `models/log_entry.dart` (+ `.g.dart`) | `services/geocoding_service.dart` |
-| `utils/format.dart` | `services/notification_service.dart` |
-| `controller/auth_controller.dart` | `view/pages/entry_form_page.dart` |
-| `controller/log_controller.dart` | `view/pages/entry_detail_page.dart` |
-| `view/pages/login_page.dart` | `view/pages/reminder_page.dart` |
-| `view/pages/register_page.dart` | |
-| `view/pages/root_page.dart` | |
-| `view/pages/history_page.dart` | |
-| `view/pages/profile_page.dart` | |
-
-### 7.2 Langkah 0 — Sync Kontrak (15 Menit Pertama, Sekali di Awal)
-1. **Orang A** membuat repo GitHub, `flutter create`, mengisi `pubspec.yaml`, membuat `models/` + menjalankan `dart run build_runner build`, membuat `utils/format.dart`, dan membuat **file kerangka kosong (placeholder)** untuk semua file yang dipanggil lintas orang:
-   - `AuthController`: `Rxn<AppUser> currentUser`, `register()`, `login()`, `restoreSession()`, `logout()`.
-   - `LogController`: `RxList<LogEntry> entries`, `Rxn<DateTime> filterDate`, `visibleEntries`, `todayCount`, `weekCount`, `monthCount`, `loadEntries()`, `addEntry(LogEntry)`, `updateEntry(LogEntry)`, `deleteEntry(LogEntry)`.
-   - `EntryFormPage({super.key, this.entry})` (`LogEntry? entry`).
-   - `EntryDetailPage({super.key, required this.entry})` (`LogEntry entry`).
-   - `ReminderPage({super.key})`.
-   - `NotificationService` dengan method kosong `init()`.
-2. **Orang A push ke `main`**, lalu **Orang B `git pull`**.
-
-### 7.3 Alur Kerja Paralel (Jalan Bersamaan Tanpa Saling Tunggu)
-
-| Gelombang | Orang A (Branch `feat/a-...`) | Orang B (Branch `feat/b-...`) |
-|---|---|---|
-| **Gelombang 1** | • Setup `ThemeData` palet warna & Hive init di `main.dart`<br>• `AuthController`, `LoginPage`, `RegisterPage`, `RootPage` | • Konfigurasi `build.gradle.kts` & `AndroidManifest.xml`<br>• `LocationService.getPosition()`<br>• `GeocodingService.reverse()` + timeout 5 detik |
-| **Gelombang 2** | • `LogController` (CRUD Hive, filter tanggal, hitung `todayCount`, `weekCount`, `monthCount`)<br>• `HistoryPage` (Card ringkasan periodik + `ListView.builder` + filter tanggal) | • `EntryFormPage` (tambah/edit, `showDatePicker`, `showTimePicker`, switch lokasi, `dispose()`)<br>• `EntryDetailPage` (detail waktu/catatan/alamat, tombol Google Maps, edit & dialog hapus) |
-| **Gelombang 3** | • `ProfilePage` (info akun, *disclaimer*, tombol ke `ReminderPage`, logout) | • `NotificationService` (init, instant, scheduled, cancel)<br>• `ReminderPage` (switch on/off, `showTimePicker`, tombol notif uji) |
-| **Gelombang 4** | • Uji alur bersama di HP fisik, perbaiki bug di file masing-masing, tulis `README.md` bersama | • Uji alur bersama di HP fisik, perbaiki bug di file masing-masing, siapkan akun & data demo |
-
-**Tips Testing Lokal Sebelum Merge:**
-- **Orang A:** Bisa tambahkan sementara 1–2 data dummy saat mengetes `HistoryPage` sebelum `EntryFormPage` milik B selesai.
-- **Orang B:** Bisa arahkan sementara `home:` di `main.dart` lokal ke `EntryFormPage()` atau `ReminderPage()` saat ngetes (**jangan di-commit** ke Git), lalu kembalikan sebelum push.
-
-### 7.4 Aturan GitHub Agar Kontributor Terbaca Adil
-1. **Wajib samakan email Git lokal dengan email akun GitHub masing-masing:**
-   Cek dengan `git config user.email` — jika beda, set dengan `git config user.email "email-github-kalian@..."`. (Kalau beda, commit tidak akan terhitung di tab *Contributors* GitHub).
-2. **Selalu buat branch per gelombang/fitur** (`git checkout -b feat/a-auth`), commit kecil tiap bagian selesai, lalu merge / Pull Request ke `main`.
-3. **Selalu `git pull origin main`** sebelum membuat branch baru.
-4. **Commit file `*.g.dart`** agar partner tidak perlu menjalankan ulang `build_runner`.
-
----
-
-## 8. Hal yang Wajib Dicek Sebelum Mulai & Saat Uji Coba
-
-### 8.1 Pengecekan Awal (`⚠`)
-1. Cek versi terbaru `get` dan `url_launcher` di `pub.dev`.
-2. Cek signature `notificationPlugin.cancel(...)` di `flutter_local_notifications: ^19.0.0`.
-3. Isi `User-Agent` Nominatim dengan identitas + email tim yang valid (bukan teks placeholder).
-4. Konfirmasi ke asisten: pemakaian `Navigator` (Modul 4) + GetX State/DI (Modul 8) serta izin demo memakai **HP fisik** di lab.
-
-### 8.2 Checklist Pengujian (Minimal di HP Fisik)
-- [ ] Register, login, tutup app total lalu buka lagi → masih login.
-- [ ] Logout → tidak bisa kembali dengan tombol *Back*.
-- [ ] Dua akun berbeda di 1 HP → masing-masing hanya melihat catatannya sendiri.
-- [ ] Tambah catatan dengan lokasi → alamat Nominatim tampil; jika GPS mati/internet mati → tetap tersimpan dengan fallback.
-- [ ] Tambah catatan dengan opsi *"catat tanpa lokasi"* → tombol Google Maps tidak muncul di Detail.
-- [ ] Filter per tanggal & ringkasan periodik (*Hari ini / 7 hari / 30 hari*) sesuai dan tidak error saat kosong.
-- [ ] Edit dan hapus catatan (termasuk saat filter tanggal aktif) memperbarui data yang benar.
-- [ ] Tombol *"Lihat di Google Maps"* membuka koordinat yang tepat.
-- [ ] Notifikasi uji langsung & notifikasi terjadwal muncul di HP.
-
----
-
-## 9. Persiapan Live Coding & Presentasi
-
-- **Code Walkthrough Berdua:** Setelah Gelombang 3, luangkan 15–20 menit saling menjelaskan alur end-to-end: *UI (`view/`) → State (`controller/`) → Akses luar (`services/`) → Penyimpanan (`Hive`/`SharedPreferences`)*.
-- **Titik Ubah Cepat saat Live Coding:**
-  - Ubah urutan/filter/hitungan periodik → buka `controller/log_controller.dart`.
-  - Ubah syarat login/register → buka `controller/auth_controller.dart`.
-  - Ubah API/GPS/notifikasi → buka `services/`.
-  - Ubah warna tema → buka `ThemeData` di `main.dart`.
+### Persiapan Live Coding
+- **Kalau diminta ubah logika:** Filter/urutan/periodik ada di `LogController`; validasi akun di `AuthController`; GPS/API/notif di `services/`.
+- **Kalau diminta melepas GetX:** Ganti `GetMaterialApp` → `MaterialApp`, jadikan controller class Singleton biasa, dan ganti `Obx` di `HistoryPage` menjadi `ValueListenableBuilder(valueListenable: Hive.box<LogEntry>('entries').listenable(), ...)` (pola Modul 6).
+- **Sebelum presentasi:** Lakukan *code walkthrough* 15 menit berdua agar keduanya bisa menjelaskan seluruh alur aplikasi.
