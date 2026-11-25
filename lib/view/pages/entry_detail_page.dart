@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../models/log_entry.dart';
 
 class EntryDetailPage extends StatelessWidget {
-  const EntryDetailPage({super.key});
+  final LogEntry entry;
+
+  const EntryDetailPage({super.key, required this.entry});
 
   @override
   Widget build(BuildContext context) {
