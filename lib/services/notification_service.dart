@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -19,6 +20,12 @@ class NotificationService {
   static const String _channelId = 'reminder_channel';
   static const String _channelName = 'Reminder Notifications';
 
+  static const String _healthChannelId = 'health_alert_channel';
+  static const String _healthChannelName = 'Peringatan Pola Pencernaan';
+
+  // Callback yang dipanggil saat user menekan notifikasi peringatan kesehatan
+  VoidCallback? onOpenHomeTab;
+
   // ─── Inisialisasi ─────────────────────────────────────────────────────────
 
   /// Harus dipanggil sekali saat app pertama kali dijalankan (di main.dart).
@@ -30,32 +37,45 @@ class NotificationService {
     tz.setLocalLocation(tz.getLocation('Asia/Jakarta'));
 
     // Konfigurasi icon launcher untuk notifikasi Android
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
 
     const initSettings = InitializationSettings(android: androidSettings);
 
-    // Inisialisasi plugin
-    await notificationPlugin.initialize(initSettings);
+    // Inisialisasi plugin beserta handler klik notifikasi
+    await notificationPlugin.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        if (response.payload == 'open_home') {
+          onOpenHomeTab?.call();
+        }
+      },
+    );
+
+    final androidImpl = notificationPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
 
     // Minta izin notifikasi ke pengguna (Android 13+)
-    await notificationPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
+    await androidImpl?.requestNotificationsPermission();
 
-    // Buat channel notifikasi Android dengan importance tinggi
-    // agar notifikasi muncul sebagai heads-up (pop-up singkat)
-    const channel = AndroidNotificationChannel(
+    // Buat channel pengingat harian
+    const reminderChannel = AndroidNotificationChannel(
       _channelId,
       _channelName,
       importance: Importance.high,
     );
+    await androidImpl?.createNotificationChannel(reminderChannel);
 
-    await notificationPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+    // Buat channel peringatan kesehatan pencernaan
+    const healthChannel = AndroidNotificationChannel(
+      _healthChannelId,
+      _healthChannelName,
+      importance: Importance.high,
+    );
+    await androidImpl?.createNotificationChannel(healthChannel);
   }
 
   // ─── Notifikasi langsung ──────────────────────────────────────────────────
@@ -79,18 +99,79 @@ class NotificationService {
     await notificationPlugin.show(0, title, body, details);
   }
 
+  /// Tampilkan notifikasi peringatan pola pencernaan (dengan payload ke tab Home).
+  Future<void> showHealthAlert({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      _healthChannelId,
+      _healthChannelName,
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const details = NotificationDetails(android: androidDetails);
+
+    await notificationPlugin.show(
+      id,
+      title,
+      body,
+      details,
+      payload: 'open_home',
+    );
+  }
+
+  // ─── Deteksi Pola BAB (Sembelit & Frekuensi Tinggi) ───────────────────────
+
+  /// Mengecek pola BAB pengguna berdasarkan daftar waktu catatan [entryDates]:
+  /// 1. Belum mencatat >= 3 hari -> peringatan kemungkinan sembelit (id 101)
+  /// 2. Mencatat >= 3 kali pada hari ini -> peringatan frekuensi tinggi (id 102)
+  Future<void> checkDigestivePattern(List<DateTime> entryDates) async {
+    if (entryDates.isEmpty) return;
+
+    final now = DateTime.now();
+
+    // Urutkan dari yang paling baru
+    final sorted = List<DateTime>.from(entryDates)
+      ..sort((a, b) => b.compareTo(a));
+
+    // 1. Cek selisih hari dari catatan terakhir
+    final daysSinceLast = now.difference(sorted.first).inDays;
+    if (daysSinceLast >= 3) {
+      await showHealthAlert(
+        id: 101,
+        title: 'Sudah $daysSinceLast Hari Belum Mencatat BAB',
+        body: 'Perbanyak minum air putih & serat. Tap untuk baca tips pencernaan di Home.',
+      );
+    }
+
+    // 2. Cek jumlah catatan pada hari ini
+    final todayCount = sorted
+        .where(
+          (d) => d.year == now.year && d.month == now.month && d.day == now.day,
+        )
+        .length;
+
+    if (todayCount >= 3) {
+      await showHealthAlert(
+        id: 102,
+        title: 'Frekuensi BAB Hari Ini Cukup Tinggi ($todayCount Kali)',
+        body: 'Jaga hidrasi tubuhmu. Tap untuk membaca artikel & tips kesehatan di Home.',
+      );
+    }
+  }
+
   // ─── Notifikasi terjadwal ─────────────────────────────────────────────────
 
   /// Jadwalkan notifikasi berulang setiap hari pada waktu [scheduledTime].
-  /// Menggunakan matchDateTimeComponents.time agar diulang setiap hari
-  /// pada jam & menit yang sama.
   Future<void> scheduleNotification({
     required int id,
     required String title,
     required String body,
     required DateTime scheduledTime,
   }) async {
-    // Konversi DateTime ke TZDateTime supaya timezone diperhitungkan
     final tzScheduled = tz.TZDateTime(
       tz.local,
       scheduledTime.year,
@@ -110,19 +191,16 @@ class NotificationService {
     const details = NotificationDetails(android: androidDetails);
 
     try {
-      // Coba pakai exact alarm (butuh izin SCHEDULE_EXACT_ALARM)
       await notificationPlugin.zonedSchedule(
         id,
         title,
         body,
         tzScheduled,
         details,
-        // Berulang setiap hari pada jam yang sama
         matchDateTimeComponents: DateTimeComponents.time,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
     } catch (e) {
-      // Jika exact alarm tidak diizinkan, fallback ke inexact
       final errStr = e.toString().toLowerCase();
       if (errStr.contains('exact_alarms_not_permitted') ||
           errStr.contains('exact') ||
@@ -138,11 +216,9 @@ class NotificationService {
             androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           );
         } catch (e2) {
-          // Jika inexact juga gagal, lempar error agar UI bisa menampilkannya
           rethrow;
         }
       } else {
-        // Error lain yang tidak dikenali → lempar ulang ke pemanggil
         rethrow;
       }
     }
@@ -150,8 +226,6 @@ class NotificationService {
 
   // ─── Batalkan notifikasi ──────────────────────────────────────────────────
 
-  /// Batalkan notifikasi berdasarkan [id].
-  /// Memanggil cancel() dari flutter_local_notifications.
   Future<void> cancelNotification(int id) async {
     await notificationPlugin.cancel(id);
   }

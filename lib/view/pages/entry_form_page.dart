@@ -7,6 +7,7 @@ import '../../controller/log_controller.dart';
 import '../../models/log_entry.dart';
 import '../../services/geocoding_service.dart';
 import '../../services/location_service.dart';
+import '../../services/notification_service.dart';
 import '../../utils/format.dart';
 
 /// Halaman untuk TAMBAH catatan baru atau EDIT catatan yang sudah ada.
@@ -114,11 +115,8 @@ class _EntryFormPageState extends State<EntryFormPage> {
     try {
       if (_isEditMode) {
         // ── MODE EDIT ──
-        // Ubah langsung field pada objek Hive yang sudah ada,
-        // lalu panggil updateEntry agar perubahan tersimpan ke box.
         widget.entry!.dateTime = _selectedDateTime;
         widget.entry!.note = _noteController.text.trim();
-        // Lokasi lama TIDAK diubah → dibiarkan apa adanya
         await logController.updateEntry(widget.entry!);
       } else {
         // ── MODE TAMBAH ──
@@ -131,7 +129,6 @@ class _EntryFormPageState extends State<EntryFormPage> {
           final Position? position = await LocationService.getPosition();
 
           if (position == null) {
-            // GPS mati atau izin ditolak → simpan tanpa lokasi
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -160,6 +157,10 @@ class _EntryFormPageState extends State<EntryFormPage> {
         );
         await logController.addEntry(newEntry);
       }
+
+      // Cek pola frekuensi BAB setelah menyimpan catatan
+      final allDates = logController.entries.map((e) => e.dateTime).toList();
+      await NotificationService().checkDigestivePattern(allDates);
 
       // Pastikan widget masih terpasang sebelum mengakses context
       if (!mounted) return;
@@ -198,7 +199,6 @@ class _EntryFormPageState extends State<EntryFormPage> {
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.calendar_today),
               title: const Text('Tanggal & Waktu'),
-              // Tampilkan hasil pilihan menggunakan fungsi dari utils/format.dart
               subtitle: Text(formatDateTime(_selectedDateTime)),
               onTap: _pickDateTime,
               trailing: const Icon(Icons.chevron_right),
@@ -248,7 +248,6 @@ class _EntryFormPageState extends State<EntryFormPage> {
 
             // ── Tombol Simpan ──
             ElevatedButton(
-              // Nonaktifkan saat sedang menyimpan
               onPressed: _isSaving ? null : _save,
               child: _isSaving
                   ? const SizedBox(
