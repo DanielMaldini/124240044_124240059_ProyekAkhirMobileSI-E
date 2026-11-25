@@ -1,4 +1,4 @@
-# GutLog — Final Project Plan
+# Leega — Final Project Plan
 
 **Mata Kuliah:** Praktikum Teknologi dan Pemrograman Mobile  
 **Tim:** 2 Orang (Orang A & Orang B)  
@@ -10,7 +10,7 @@
 
 ## 1. Ringkasan Konsep Aplikasi
 
-**GutLog** adalah aplikasi *Personal Digestive Health Diary* berbasis waktu dan lokasi. Pengguna mencatat kapan ia BAB (`dateTime`), catatan bebas (`note`), dan lokasinya (`lat`, `lng`, `address`) dengan opsi **"catat tanpa lokasi"**.
+**Leega** adalah aplikasi *Personal Digestive Health Diary* berbasis waktu dan lokasi. Pengguna mencatat kapan ia BAB (`dateTime`), catatan bebas (`note`), dan lokasinya (`lat`, `lng`, `address`) dengan opsi **"catat tanpa lokasi"**.
 
 Dari catatan tersebut, pengguna bisa:
 - Melihat **ringkasan periodik** (*Hari ini / 7 hari / 30 hari*) dan **riwayat per tanggal**.
@@ -58,7 +58,7 @@ Tema warna dipasang terpusat di `ThemeData` pada `main.dart` agar seragam dan ti
 
 ## 4. Pemetaan ke Materi Praktikum (Modul 2–8)
 
-| Modul | Konsep & Pola yang Dipakai | Lokasi di GutLog |
+| Modul | Konsep & Pola yang Dipakai | Lokasi di Leega |
 |---|---|---|
 | **Modul 2 (Widget)** | `Scaffold`, `AppBar`, `Column`, `Row`, `SizedBox`, `Padding`, `Card`, `Text`, `TextField`, `ElevatedButton`, `TextButton`, `IconButton`, `ListView.builder`, `ListTile`, `SingleChildScrollView` (+ `SwitchListTile`, `AlertDialog`) | Semua halaman di `view/pages/` |
 | **Modul 3 (State & Data)** | `StatelessWidget`, `StatefulWidget`, `setState`, `TextEditingController` (+ `dispose`), Model class, conditional rendering, `SnackBar` | `LoginPage`, `RegisterPage`, `RootPage`, `EntryFormPage`, `EntryDetailPage`, `ReminderPage` |
