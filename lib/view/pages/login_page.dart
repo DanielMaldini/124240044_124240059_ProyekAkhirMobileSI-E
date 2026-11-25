@@ -39,6 +39,7 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     Get.find<LogController>().loadEntries();
+    ScaffoldMessenger.of(context).clearSnackBars();
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => const RootPage()),
