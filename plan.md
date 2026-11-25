@@ -1,4 +1,4 @@
-# GutLog — Panduan Final Project (Simple & Siap Kerja)
+# Leega — Panduan Final Project (Simple & Siap Kerja)
 
 **Tim:** 2 Orang (Orang A & Orang B)  
 **Target Modul:** Modul 2–7 (Wajib) + Modul 8 GetX (Bonus)  
@@ -8,12 +8,12 @@
 
 ## 1. Konsep Aplikasi (Singkat)
 
-**GutLog** adalah *Personal Digestive Health Diary* berbasis waktu dan lokasi:
+**Leega** adalah *Personal Digestive Health Diary* berbasis waktu dan lokasi:
 - Catat kejadian BAB: **tanggal & jam** (`dateTime`), **catatan bebas** (`note`), dan **lokasi** (`lat`, `lng`, `address` — ada opsi *"catat tanpa lokasi"*).
 - **Ringkasan periodik** (*Hari ini / 7 hari / 30 hari*) + **filter per tanggal** di halaman Riwayat.
 - Tombol **"Lihat di Google Maps"** di halaman Detail (pakai `url_launcher`).
 - **Pengingat harian** (*scheduled notification*) + tombol uji notifikasi.
-- **Disclaimer:** *"GutLog bukan alat diagnosis medis."* (di Profil & Form).
+- **Disclaimer:** *"Leega bukan alat diagnosis medis."* (di Profil & Form).
 
 **Yang sengaja TIDAK dibuat (biar simpel & aman saat live coding):**
 Tidak ada input bentuk (Bristol), warna, nyeri, grafik/chart, hapus lokasi saat edit, hash `crypto`, reschedule otomatis di `main.dart`, maupun `GetPage`/`Bindings` (navigasi tetap pakai `Navigator` Modul 4).
@@ -217,7 +217,7 @@ dependencies {
     'https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lng&format=jsonv2',
   );
   final response = await http.get(uri, headers: {
-    'User-Agent': 'GutLogApp/1.0 (isi-email-tim@upnyk.ac.id)',
+    'User-Agent': 'LeegaApp/1.0 (isi-email-tim@upnyk.ac.id)',
   }).timeout(const Duration(seconds: 5));
   if (response.statusCode == 200) {
     final data = jsonDecode(response.body);
