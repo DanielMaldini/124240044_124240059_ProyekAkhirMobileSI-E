@@ -76,6 +76,7 @@ class _EntryFormPageState extends State<EntryFormPage> {
       initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
     );
     if (pickedTime == null) return;
+    if (!mounted) return;
 
     // Gabungkan tanggal dan jam menjadi satu DateTime
     setState(() {
@@ -95,8 +96,7 @@ class _EntryFormPageState extends State<EntryFormPage> {
     setState(() => _isSaving = true);
 
     // Ambil username dari sesi yang sedang login
-    final username =
-        Get.find<AuthController>().currentUser.value?.username;
+    final username = Get.find<AuthController>().currentUser.value?.username;
     if (username == null) {
       // Sesi sudah habis atau belum login
       ScaffoldMessenger.of(context).showSnackBar(
