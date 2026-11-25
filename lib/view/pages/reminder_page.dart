@@ -17,9 +17,9 @@ class _ReminderPageState extends State<ReminderPage> {
   // ─── State ────────────────────────────────────────────────────────────────
 
   bool _reminderOn = false; // Apakah pengingat aktif?
-  int _hour = 20;           // Jam pengingat (default 20:00)
-  int _minute = 0;          // Menit pengingat
-  bool _isLoading = true;   // Mencegah interaksi saat sedang baca SharedPrefs
+  int _hour = 20; // Jam pengingat (default 20:00)
+  int _minute = 0; // Menit pengingat
+  bool _isLoading = true; // Mencegah interaksi saat sedang baca SharedPrefs
 
   // Key SharedPreferences — nama persis agar konsisten antar sesi
   static const String _keyOn = 'reminderOn';
@@ -115,9 +115,8 @@ class _ReminderPageState extends State<ReminderPage> {
         await _saveSettings();
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pengingat dimatikan')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Pengingat dimatikan')));
       }
     } catch (_) {
       // Gagal mengaktifkan → kembalikan switch ke off dan simpan
@@ -144,6 +143,7 @@ class _ReminderPageState extends State<ReminderPage> {
     );
 
     if (picked == null) return; // Pengguna membatalkan
+    if (!mounted) return;
 
     setState(() {
       _hour = picked.hour;
@@ -184,9 +184,8 @@ class _ReminderPageState extends State<ReminderPage> {
     );
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Notifikasi uji dikirim')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Notifikasi uji dikirim')));
   }
 
   // ─── Build ────────────────────────────────────────────────────────────────
@@ -195,9 +194,7 @@ class _ReminderPageState extends State<ReminderPage> {
   Widget build(BuildContext context) {
     // Tampilkan loading indicator selama membaca SharedPreferences
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     // Format jam untuk tampilan ListTile
@@ -205,9 +202,7 @@ class _ReminderPageState extends State<ReminderPage> {
         '${_hour.toString().padLeft(2, '0')}:${_minute.toString().padLeft(2, '0')}';
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pengingat Harian'),
-      ),
+      appBar: AppBar(title: const Text('Pengingat Harian')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

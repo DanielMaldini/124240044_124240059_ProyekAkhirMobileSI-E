@@ -26,9 +26,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
     // Navigasi ke halaman form dengan entry yang ada (mode edit)
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => EntryFormPage(entry: widget.entry),
-      ),
+      MaterialPageRoute(builder: (_) => EntryFormPage(entry: widget.entry)),
     );
     // Setelah kembali, refresh tampilan agar data terbaru terlihat
     if (mounted) setState(() {});
@@ -50,10 +48,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Hapus',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -184,8 +179,8 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                     entry.address != null
                         ? entry.address!
                         : hasLocation
-                            ? '${entry.lat}, ${entry.lng}'
-                            : 'Dicatat tanpa lokasi',
+                        ? '${entry.lat}, ${entry.lng}'
+                        : 'Dicatat tanpa lokasi',
                     style: const TextStyle(color: Color(0xFF303A32)),
                   ),
                 ],
