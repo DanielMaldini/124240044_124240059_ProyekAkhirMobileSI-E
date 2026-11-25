@@ -9,6 +9,7 @@ import 'package:gutlog/controller/log_controller.dart';
 import 'package:gutlog/models/app_user.dart';
 import 'package:gutlog/models/log_entry.dart';
 import 'package:gutlog/view/pages/history_page.dart';
+import 'package:gutlog/view/pages/profile_page.dart';
 
 void main() {
   late Directory tempDir;
@@ -123,5 +124,29 @@ void main() {
 
     expect(find.text('Belum ada catatan'), findsNothing);
     expect(find.text('Catatan tes'), findsOneWidget);
+  });
+
+  testWidgets('ProfilePage displays user, disclaimer, and handles logout', (tester) async {
+    late AuthController auth;
+    await tester.runAsync(() async {
+      auth = Get.put(AuthController());
+      auth.register('andi', '123', 'Andi Pratama');
+      await auth.login('andi', '123');
+    });
+    Get.put(LogController());
+
+    await tester.pumpWidget(const MaterialApp(home: ProfilePage()));
+    expect(find.text('Andi Pratama'), findsOneWidget);
+    expect(find.text('@andi'), findsOneWidget);
+    expect(find.textContaining('Leega bukan alat diagnosis medis'), findsOneWidget);
+    expect(find.text('Pengingat Harian'), findsOneWidget);
+
+    await tester.runAsync(() async {
+      await tester.tap(find.text('Logout'));
+    });
+    await tester.pumpAndSettle();
+
+    expect(auth.currentUser.value, isNull);
+    expect(find.text('Login Leega'), findsOneWidget);
   });
 }
