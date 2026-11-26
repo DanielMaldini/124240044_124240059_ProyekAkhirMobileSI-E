@@ -4,12 +4,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../controller/log_controller.dart';
 import '../../models/log_entry.dart';
+import '../../utils/app_theme.dart';
 import '../../utils/format.dart';
 import 'entry_form_page.dart';
 
-/// Halaman untuk melihat detail satu catatan.
-/// Bersifat StatefulWidget agar bisa memanggil setState setelah
-/// kembali dari halaman edit, sehingga tampilan selalu terbaru.
+/// Halaman detail satu catatan.
 class EntryDetailPage extends StatefulWidget {
   final LogEntry entry;
 
@@ -20,27 +19,28 @@ class EntryDetailPage extends StatefulWidget {
 }
 
 class _EntryDetailPageState extends State<EntryDetailPage> {
-  // ─── Aksi: buka halaman edit ─────────────────────────────────────────────
-
   Future<void> _openEdit() async {
-    // Navigasi ke halaman form dengan entry yang ada (mode edit)
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => EntryFormPage(entry: widget.entry)),
     );
-    // Setelah kembali, refresh tampilan agar data terbaru terlihat
     if (mounted) setState(() {});
   }
 
-  // ─── Aksi: hapus catatan ─────────────────────────────────────────────────
-
   Future<void> _confirmDelete() async {
-    // Tampilkan dialog konfirmasi sebelum benar-benar menghapus
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hapus Catatan'),
-        content: const Text('Hapus catatan ini?'),
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Hapus Catatan',
+          style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink),
+        ),
+        content: const Text(
+          'Hapus catatan ini?',
+          style: TextStyle(color: AppColors.inkSecondary),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -48,29 +48,30 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+            child: const Text(
+              'Hapus',
+              style: TextStyle(
+                color: AppColors.red,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
     );
 
-    if (confirmed != true) return; // Pengguna membatalkan
+    if (confirmed != true) return;
 
-    // Hapus dari Hive lewat LogController
     await Get.find<LogController>().deleteEntry(widget.entry);
 
-    // Pastikan widget masih ada sebelum navigasi
     if (!mounted) return;
-    Navigator.pop(context); // Kembali ke daftar catatan
+    Navigator.pop(context);
   }
-
-  // ─── Aksi: buka Google Maps ───────────────────────────────────────────────
 
   Future<void> _openMaps() async {
     final lat = widget.entry.lat!;
     final lng = widget.entry.lng!;
 
-    // Susun URL Google Maps berdasarkan koordinat
     final url = Uri.parse(
       'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
     );
@@ -81,109 +82,222 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Gagal membuka Google Maps'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.red,
           ),
         );
       }
     } catch (_) {
-      // Tangani jika launchUrl melempar exception (mis. paket tidak terpasang)
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Gagal membuka Google Maps'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.red,
           ),
         );
       }
     }
   }
 
-  // ─── Build ────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
     final hasLocation = entry.lat != null && entry.lng != null;
+    final condOption = BowelConditions.fromLabel(entry.condition);
+    final symptoms = entry.symptoms ?? const <String>[];
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Detail Catatan'),
         actions: [
-          // Tombol edit
           IconButton(
-            icon: const Icon(Icons.edit),
+            icon: const Icon(Icons.edit_outlined),
             tooltip: 'Edit',
             onPressed: _openEdit,
           ),
-          // Tombol hapus
           IconButton(
-            icon: const Icon(Icons.delete),
+            icon: const Icon(Icons.delete_outline, color: AppColors.red),
             tooltip: 'Hapus',
             onPressed: _confirmDelete,
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Waktu catatan ──
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.access_time),
-              title: const Text('Waktu'),
-              // Gunakan formatDateTime dari utils/format.dart
-              subtitle: Text(formatDateTime(entry.dateTime)),
-            ),
-
-            const Divider(),
-
-            // ── Isi catatan ──
-            const SizedBox(height: 8),
-            const Text(
-              'Catatan',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              entry.note.isEmpty ? 'Tidak ada catatan' : entry.note,
-              style: TextStyle(
-                // Teks abu jika kosong
-                color: entry.note.isEmpty ? Colors.grey : null,
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // ── Informasi lokasi ──
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8EEE5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Lokasi',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF303A32),
+            // ── Kartu Waktu & Kondisi ──
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.schedule,
+                          size: 18,
+                          color: AppColors.inkSecondary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            formatDateTime(entry.dateTime),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    // Prioritas: address → koordinat → tanpa lokasi
-                    entry.address != null
-                        ? entry.address!
-                        : hasLocation
-                        ? '${entry.lat}, ${entry.lng}'
-                        : 'Dicatat tanpa lokasi',
-                    style: const TextStyle(color: Color(0xFF303A32)),
-                  ),
-                ],
+                    if (condOption != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: condOption.bgColor,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              condOption.icon,
+                              size: 15,
+                              color: condOption.color,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${condOption.label} • ${condOption.subtitle}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: condOption.color,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (symptoms.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: symptoms
+                            .map(
+                              (s) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.subtleBg,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  s,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.ink,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // ── Kartu Catatan ──
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Catatan',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.inkSecondary,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      entry.note.isEmpty ? 'Tidak ada catatan' : entry.note,
+                      style: TextStyle(
+                        fontSize: 15,
+                        height: 1.5,
+                        color: entry.note.isEmpty
+                            ? AppColors.inkMuted
+                            : AppColors.ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // ── Kartu Lokasi ──
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 16,
+                          color: AppColors.inkSecondary,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Lokasi',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.inkSecondary,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      entry.address != null
+                          ? entry.address!
+                          : hasLocation
+                              ? '${entry.lat}, ${entry.lng}'
+                              : 'Dicatat tanpa lokasi',
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.45,
+                        color: hasLocation
+                            ? AppColors.ink
+                            : AppColors.inkSecondary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
 
@@ -192,7 +306,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: _openMaps,
-                icon: const Icon(Icons.map_outlined),
+                icon: const Icon(Icons.map_outlined, size: 18),
                 label: const Text('Lihat di Google Maps'),
               ),
             ],

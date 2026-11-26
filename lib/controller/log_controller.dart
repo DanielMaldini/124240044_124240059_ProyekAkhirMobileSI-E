@@ -1,7 +1,22 @@
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
 import '../models/log_entry.dart';
+import '../utils/app_theme.dart';
 import 'auth_controller.dart';
+
+class DigestiveStatusSummary {
+  final String badge;
+  final String title;
+  final String subtitle;
+  final String level; // 'good' | 'warn' | 'alert' | 'neutral'
+
+  const DigestiveStatusSummary({
+    required this.badge,
+    required this.title,
+    required this.subtitle,
+    required this.level,
+  });
+}
 
 class LogController extends GetxController {
   final Box<LogEntry> _box = Hive.box<LogEntry>('entries');
@@ -43,6 +58,9 @@ class LogController extends GetxController {
     loadEntries();
   }
 
+  /// Catatan paling baru (entries sudah terurut terbaru dulu).
+  LogEntry? get latestEntry => entries.isEmpty ? null : entries.first;
+
   /// Daftar catatan yang tampil sesuai filter tanggal.
   List<LogEntry> get visibleEntries {
     final d = filterDate.value;
@@ -81,5 +99,82 @@ class LogController extends GetxController {
     final start = DateTime(now.year, now.month, now.day)
         .subtract(const Duration(days: 29));
     return entries.where((e) => !e.dateTime.isBefore(start)).length;
+  }
+
+  /// Jumlah catatan per hari selama 7 hari terakhir (index 0 = 6 hari lalu, index 6 = hari ini).
+  List<int> get last7DaysCounts {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return List.generate(7, (i) {
+      final target = today.subtract(Duration(days: 6 - i));
+      return entries
+          .where(
+            (e) =>
+                e.dateTime.year == target.year &&
+                e.dateTime.month == target.month &&
+                e.dateTime.day == target.day,
+          )
+          .length;
+    });
+  }
+
+  /// Teks singkat kapan terakhir kali mencatat BAB.
+  String get lastEntryRelativeText {
+    final latest = latestEntry;
+    if (latest == null) return 'Belum ada catatan';
+    final diff = DateTime.now().difference(latest.dateTime);
+    if (diff.inMinutes < 1) return 'Baru saja';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} menit lalu';
+    if (diff.inHours < 24) return '${diff.inHours} jam lalu';
+    return '${diff.inDays} hari lalu';
+  }
+
+  /// Menentukan ringkasan status pencernaan untuk kartu HomePage:
+  /// 1. Belum ada catatan -> status netral ('Mulai Mencatat')
+  /// 2. >= 3x hari ini atau terakhir Cair/Diare -> 'Perlu Hidrasi' (alert)
+  /// 3. >= 3 hari belum mencatat atau terakhir Keras/Susah -> 'Perlu Perhatian' (warn)
+  /// 4. Selain itu -> 'Pola Teratur' (good)
+  DigestiveStatusSummary get digestiveStatus {
+    final latest = latestEntry;
+    if (latest == null) {
+      return const DigestiveStatusSummary(
+        badge: 'Mulai Mencatat',
+        title: 'Belum ada data pencernaan',
+        subtitle: 'Catat rutinitas BAB pertamamu untuk mulai memantau pola harian.',
+        level: 'neutral',
+      );
+    }
+
+    final now = DateTime.now();
+    final daysSinceLast = now.difference(latest.dateTime).inDays;
+
+    if (todayCount >= 3 || latest.condition == BowelConditions.watery) {
+      return DigestiveStatusSummary(
+        badge: 'Perlu Hidrasi',
+        title: todayCount >= 3
+            ? 'Frekuensi hari ini tinggi ($todayCount kali)'
+            : 'Kondisi terakhir cair / diare',
+        subtitle: 'Pastikan asupan air putih atau cairan elektrolit tercukupi.',
+        level: 'alert',
+      );
+    }
+
+    if (daysSinceLast >= 3 || latest.condition == BowelConditions.hard) {
+      return DigestiveStatusSummary(
+        badge: 'Perlu Perhatian',
+        title: daysSinceLast >= 3
+            ? 'Sudah $daysSinceLast hari belum mencatat'
+            : 'Kondisi terakhir keras / susah',
+        subtitle: 'Perbanyak konsumsi serat, buah, sayur, dan air putih.',
+        level: 'warn',
+      );
+    }
+
+    return DigestiveStatusSummary(
+      badge: 'Pola Teratur',
+      title: 'Pencernaan terlihat baik',
+      subtitle: 'Tercatat $weekCount kali dalam 7 hari terakhir. Pertahankan pola sehatmu.',
+      level: 'good',
+    );
   }
 }

@@ -23,13 +23,15 @@ class LogEntryAdapter extends TypeAdapter<LogEntry> {
       lat: fields[3] as double?,
       lng: fields[4] as double?,
       address: fields[5] as String?,
+      condition: fields[6] as String?,
+      symptoms: (fields[7] as List?)?.cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, LogEntry obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.username)
       ..writeByte(1)
@@ -41,7 +43,11 @@ class LogEntryAdapter extends TypeAdapter<LogEntry> {
       ..writeByte(4)
       ..write(obj.lng)
       ..writeByte(5)
-      ..write(obj.address);
+      ..write(obj.address)
+      ..writeByte(6)
+      ..write(obj.condition)
+      ..writeByte(7)
+      ..write(obj.symptoms);
   }
 
   @override

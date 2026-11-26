@@ -8,12 +8,10 @@ import '../../models/log_entry.dart';
 import '../../services/geocoding_service.dart';
 import '../../services/location_service.dart';
 import '../../services/notification_service.dart';
+import '../../utils/app_theme.dart';
 import '../../utils/format.dart';
 
 /// Halaman untuk TAMBAH catatan baru atau EDIT catatan yang sudah ada.
-/// Dibedakan lewat parameter [entry]:
-///   - null  → mode tambah
-///   - tidak null → mode edit
 class EntryFormPage extends StatefulWidget {
   final LogEntry? entry;
 
@@ -24,19 +22,17 @@ class EntryFormPage extends StatefulWidget {
 }
 
 class _EntryFormPageState extends State<EntryFormPage> {
-  // Apakah halaman ini dibuka untuk mengedit entri yang sudah ada?
   late final bool _isEditMode;
-
-  // Tanggal & jam yang dipilih pengguna
   late DateTime _selectedDateTime;
-
-  // Kontroler untuk TextField catatan (wajib di-dispose)
   late final TextEditingController _noteController;
 
-  // Apakah pengguna ingin lokasi dicatat? Hanya relevan di mode tambah.
-  bool _recordLocation = true;
+  // Pilihan kondisi BAB berdasarkan rasa/konsistensi
+  late String _selectedCondition;
 
-  // Mencegah pengguna menekan tombol Simpan dua kali
+  // Gejala penyerta opsional (multi-pilih)
+  late final Set<String> _selectedSymptoms;
+
+  bool _recordLocation = true;
   bool _isSaving = false;
 
   @override
@@ -44,33 +40,33 @@ class _EntryFormPageState extends State<EntryFormPage> {
     super.initState();
     _isEditMode = widget.entry != null;
 
-    // Inisialisasi nilai awal berdasarkan mode
     _selectedDateTime = _isEditMode ? widget.entry!.dateTime : DateTime.now();
     _noteController = TextEditingController(
       text: _isEditMode ? widget.entry!.note : '',
     );
+    _selectedCondition = _isEditMode
+        ? (widget.entry!.condition ?? BowelConditions.normal)
+        : BowelConditions.normal;
+    _selectedSymptoms = _isEditMode
+        ? Set<String>.from(widget.entry!.symptoms ?? const [])
+        : <String>{};
   }
 
   @override
   void dispose() {
-    // Wajib dibuang agar tidak ada memory leak
     _noteController.dispose();
     super.dispose();
   }
 
-  // ─── Pemilih tanggal & jam ───────────────────────────────────────────────
-
   Future<void> _pickDateTime() async {
-    // Langkah 1: pilih tanggal (tidak boleh melewati hari ini)
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: _selectedDateTime,
       firstDate: DateTime(2000),
-      lastDate: DateTime.now(), // Batasi agar tidak bisa pilih masa depan
+      lastDate: DateTime.now(),
     );
-    if (pickedDate == null) return; // Pengguna membatalkan
+    if (pickedDate == null) return;
 
-    // Langkah 2: pilih jam
     if (!mounted) return;
     final pickedTime = await showTimePicker(
       context: context,
@@ -79,7 +75,6 @@ class _EntryFormPageState extends State<EntryFormPage> {
     if (pickedTime == null) return;
     if (!mounted) return;
 
-    // Gabungkan tanggal dan jam menjadi satu DateTime
     setState(() {
       _selectedDateTime = DateTime(
         pickedDate.year,
@@ -91,19 +86,15 @@ class _EntryFormPageState extends State<EntryFormPage> {
     });
   }
 
-  // ─── Logika simpan ───────────────────────────────────────────────────────
-
   Future<void> _save() async {
     setState(() => _isSaving = true);
 
-    // Ambil username dari sesi yang sedang login
     final username = Get.find<AuthController>().currentUser.value?.username;
     if (username == null) {
-      // Sesi sudah habis atau belum login
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Sesi login tidak ditemukan'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.red,
         ),
       );
       setState(() => _isSaving = false);
@@ -111,21 +102,21 @@ class _EntryFormPageState extends State<EntryFormPage> {
     }
 
     final logController = Get.find<LogController>();
+    final symptomsList = _selectedSymptoms.toList();
 
     try {
       if (_isEditMode) {
-        // ── MODE EDIT ──
         widget.entry!.dateTime = _selectedDateTime;
         widget.entry!.note = _noteController.text.trim();
+        widget.entry!.condition = _selectedCondition;
+        widget.entry!.symptoms = symptomsList.isEmpty ? null : symptomsList;
         await logController.updateEntry(widget.entry!);
       } else {
-        // ── MODE TAMBAH ──
         double? lat;
         double? lng;
         String? address;
 
         if (_recordLocation) {
-          // Minta posisi GPS
           final Position? position = await LocationService.getPosition();
 
           if (position == null) {
@@ -141,12 +132,10 @@ class _EntryFormPageState extends State<EntryFormPage> {
           } else {
             lat = position.latitude;
             lng = position.longitude;
-            // Reverse geocoding (boleh null jika offline)
             address = await GeocodingService.reverse(lat, lng);
           }
         }
 
-        // Buat entri baru dan simpan
         final newEntry = LogEntry(
           username: username,
           dateTime: _selectedDateTime,
@@ -154,34 +143,35 @@ class _EntryFormPageState extends State<EntryFormPage> {
           lat: lat,
           lng: lng,
           address: address,
+          condition: _selectedCondition,
+          symptoms: symptomsList.isEmpty ? null : symptomsList,
         );
         await logController.addEntry(newEntry);
       }
 
       // Cek pola frekuensi BAB setelah menyimpan catatan
-      final allDates = logController.entries.map((e) => e.dateTime).toList();
-      await NotificationService().checkDigestivePattern(allDates);
+      try {
+        final allDates = logController.entries.map((e) => e.dateTime).toList();
+        await NotificationService().checkDigestivePattern(allDates);
+      } catch (_) {
+        // Jangan gagalkan simpan bila plugin notifikasi tidak aktif
+      }
 
-      // Pastikan widget masih terpasang sebelum mengakses context
       if (!mounted) return;
-      Navigator.pop(context); // Kembali ke halaman sebelumnya
+      Navigator.pop(context);
     } catch (e) {
-      // Tampilkan pesan error singkat jika ada yang gagal
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Gagal menyimpan: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.red,
           ),
         );
       }
     } finally {
-      // Selalu kembalikan tombol ke kondisi aktif
       if (mounted) setState(() => _isSaving = false);
     }
   }
-
-  // ─── Build ───────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -190,61 +180,224 @@ class _EntryFormPageState extends State<EntryFormPage> {
         title: Text(_isEditMode ? 'Edit Catatan' : 'Tambah Catatan'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Pemilih tanggal & waktu ──
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.calendar_today),
-              title: const Text('Tanggal & Waktu'),
-              subtitle: Text(formatDateTime(_selectedDateTime)),
-              onTap: _pickDateTime,
-              trailing: const Icon(Icons.chevron_right),
+            // ── Pemilihan Kondisi BAB (Wrap + ChoiceChip agar ringkas & mudah diubah) ──
+            const Text(
+              'Kondisi BAB',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Pilih kondisi yang paling sesuai dengan yang dirasakan',
+              style: TextStyle(fontSize: 12, color: AppColors.inkSecondary),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: BowelConditions.all.map((option) {
+                final isSelected = _selectedCondition == option.label;
+                return ChoiceChip(
+                  avatar: Icon(
+                    option.icon,
+                    size: 16,
+                    color: isSelected ? option.color : AppColors.inkSecondary,
+                  ),
+                  label: Text(option.label),
+                  selected: isSelected,
+                  onSelected: (_) {
+                    setState(() => _selectedCondition = option.label);
+                  },
+                  showCheckmark: false,
+                  selectedColor: option.bgColor,
+                  backgroundColor: AppColors.surface,
+                  labelStyle: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? option.color : AppColors.ink,
+                  ),
+                  side: BorderSide(
+                    color: isSelected ? option.color : AppColors.border,
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                );
+              }).toList(),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 18),
 
-            // ── TextField catatan ──
+            // ── Gejala Penyerta (Opsional, multi-pilih via FilterChip) ──
+            const Text(
+              'Gejala Penyerta (Opsional)',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: BowelConditions.symptomOptions.map((symptom) {
+                final selected = _selectedSymptoms.contains(symptom);
+                return FilterChip(
+                  label: Text(symptom),
+                  selected: selected,
+                  onSelected: (isChecked) {
+                    setState(() {
+                      if (isChecked) {
+                        _selectedSymptoms.add(symptom);
+                      } else {
+                        _selectedSymptoms.remove(symptom);
+                      }
+                    });
+                  },
+                  showCheckmark: false,
+                  selectedColor: AppColors.ink,
+                  backgroundColor: AppColors.surface,
+                  labelStyle: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? Colors.white : AppColors.ink,
+                  ),
+                  side: BorderSide(
+                    color: selected ? AppColors.ink : AppColors.border,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 18),
+
+            // ── Pemilih Tanggal & Waktu ──
+            const Text(
+              'Waktu',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: const Icon(
+                  Icons.calendar_today_outlined,
+                  size: 20,
+                  color: AppColors.ink,
+                ),
+                title: const Text(
+                  'Tanggal & Waktu',
+                  style: TextStyle(fontSize: 13, color: AppColors.inkSecondary),
+                ),
+                subtitle: Text(
+                  formatDateTime(_selectedDateTime),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.ink,
+                  ),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right,
+                  color: AppColors.inkSecondary,
+                ),
+                onTap: _pickDateTime,
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            // ── TextField Catatan ──
+            const Text(
+              'Catatan Tambahan',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 8),
             TextField(
               controller: _noteController,
-              maxLines: 4,
+              maxLines: 3,
               decoration: const InputDecoration(
-                labelText: 'Catatan',
                 hintText: 'Catatan (opsional)',
-                border: OutlineInputBorder(),
                 alignLabelWithHint: true,
               ),
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 14),
 
             // ── Switch lokasi (hanya muncul saat mode tambah) ──
-            if (!_isEditMode)
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Catat lokasi saat ini'),
-                value: _recordLocation,
-                onChanged: (val) => setState(() => _recordLocation = val),
-              ),
-
-            const SizedBox(height: 16),
-
-            // ── Card disclaimer ──
-            Card(
-              color: const Color(0xFFE8EEE5),
-              elevation: 0,
-              child: const Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  'Leega bukan alat diagnosis medis.',
-                  style: TextStyle(color: Color(0xFF303A32)),
+            if (!_isEditMode) ...[
+              Card(
+                child: SwitchListTile(
+                  title: const Text(
+                    'Catat lokasi saat ini',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Matikan untuk mencatat tanpa lokasi GPS',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.inkSecondary,
+                    ),
+                  ),
+                  value: _recordLocation,
+                  onChanged: (val) => setState(() => _recordLocation = val),
                 ),
+              ),
+              const SizedBox(height: 14),
+            ],
+
+            // ── Disclaimer Medis ──
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.subtleBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: AppColors.inkSecondary,
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Leega bukan alat diagnosis medis.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.inkSecondary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
 
             // ── Tombol Simpan ──
             ElevatedButton(
@@ -253,7 +406,10 @@ class _EntryFormPageState extends State<EntryFormPage> {
                   ? const SizedBox(
                       height: 20,
                       width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Text('Simpan'),
             ),

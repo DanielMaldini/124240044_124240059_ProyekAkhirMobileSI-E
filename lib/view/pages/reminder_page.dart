@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/notification_service.dart';
+import '../../utils/app_theme.dart';
 
 /// Halaman pengaturan pengingat harian.
-/// Pengguna bisa mengaktifkan/mematikan notifikasi harian
-/// dan memilih jam pengingat yang diinginkan.
 class ReminderPage extends StatefulWidget {
   const ReminderPage({super.key});
 
@@ -14,37 +13,26 @@ class ReminderPage extends StatefulWidget {
 }
 
 class _ReminderPageState extends State<ReminderPage> {
-  // ─── State ────────────────────────────────────────────────────────────────
+  bool _reminderOn = false;
+  int _hour = 20;
+  int _minute = 0;
+  bool _isLoading = true;
 
-  bool _reminderOn = false; // Apakah pengingat aktif?
-  int _hour = 20; // Jam pengingat (default 20:00)
-  int _minute = 0; // Menit pengingat
-  bool _isLoading = true; // Mencegah interaksi saat sedang baca SharedPrefs
-
-  // Key SharedPreferences — nama persis agar konsisten antar sesi
   static const String _keyOn = 'reminderOn';
   static const String _keyHour = 'reminderHour';
   static const String _keyMinute = 'reminderMinute';
-
-  // ID notifikasi pengingat — tidak boleh bentrok dengan id 0 (instant)
   static const int _reminderId = 100;
-
-  // ─── Lifecycle ────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
-    _loadSettings(); // Baca pengaturan tersimpan saat halaman dibuka
+    _loadSettings();
   }
 
-  // ─── Baca & simpan SharedPreferences ─────────────────────────────────────
-
-  /// Muat pengaturan dari SharedPreferences.
-  /// Dipanggil saat initState; set _isLoading false setelah selesai.
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
 
-    if (!mounted) return; // Widget sudah dibuang sebelum selesai membaca
+    if (!mounted) return;
     setState(() {
       _reminderOn = prefs.getBool(_keyOn) ?? false;
       _hour = prefs.getInt(_keyHour) ?? 20;
@@ -53,7 +41,6 @@ class _ReminderPageState extends State<ReminderPage> {
     });
   }
 
-  /// Simpan ketiga key pengaturan ke SharedPreferences.
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyOn, _reminderOn);
@@ -61,21 +48,15 @@ class _ReminderPageState extends State<ReminderPage> {
     await prefs.setInt(_keyMinute, _minute);
   }
 
-  // ─── Logika jadwal & pembatalan ───────────────────────────────────────────
-
-  /// Hitung DateTime target untuk pengingat hari ini.
-  /// Jika jam yang dipilih sudah lewat, jadwalkan untuk besok.
   DateTime _buildScheduleTime() {
     final now = DateTime.now();
     var schedule = DateTime(now.year, now.month, now.day, _hour, _minute);
     if (schedule.isBefore(now)) {
-      // Jam sudah lewat hari ini → jadwalkan besok pada jam yang sama
       schedule = schedule.add(const Duration(days: 1));
     }
     return schedule;
   }
 
-  /// Aktifkan pengingat: jadwalkan notifikasi berulang setiap hari.
   Future<void> _enableReminder() async {
     await NotificationService().scheduleNotification(
       id: _reminderId,
@@ -85,64 +66,54 @@ class _ReminderPageState extends State<ReminderPage> {
     );
   }
 
-  /// Matikan pengingat: batalkan notifikasi yang sudah dijadwalkan.
   Future<void> _disableReminder() async {
     await NotificationService().cancelNotification(_reminderId);
   }
 
-  // ─── Handler switch ON/OFF ────────────────────────────────────────────────
-
-  /// Dipanggil saat pengguna menggeser switch pengingat.
   Future<void> _onSwitchChanged(bool value) async {
     setState(() => _reminderOn = value);
 
     try {
       if (value) {
-        // Aktifkan: jadwalkan notifikasi
         await _enableReminder();
         await _saveSettings();
 
         if (!mounted) return;
-        // Tampilkan konfirmasi jam yang aktif
         final timeStr =
             '${_hour.toString().padLeft(2, '0')}:${_minute.toString().padLeft(2, '0')}';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Pengingat aktif setiap hari pukul $timeStr')),
         );
       } else {
-        // Nonaktifkan: batalkan notifikasi
         await _disableReminder();
         await _saveSettings();
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Pengingat dimatikan')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pengingat dimatikan')),
+        );
       }
     } catch (_) {
-      // Gagal mengaktifkan → kembalikan switch ke off dan simpan
       if (!mounted) return;
       setState(() => _reminderOn = false);
       await _saveSettings();
-      if (!mounted) return; // Guard setelah await
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Gagal mengaktifkan pengingat'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.red,
         ),
       );
     }
   }
 
-  // ─── Handler ganti jam ────────────────────────────────────────────────────
-
-  /// Tampilkan time picker; jika jam berubah, simpan & jadwalkan ulang.
   Future<void> _pickTime() async {
     final picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(hour: _hour, minute: _minute),
     );
 
-    if (picked == null) return; // Pengguna membatalkan
+    if (picked == null) return;
     if (!mounted) return;
 
     setState(() {
@@ -150,33 +121,26 @@ class _ReminderPageState extends State<ReminderPage> {
       _minute = picked.minute;
     });
 
-    // Simpan jam baru ke SharedPreferences
     await _saveSettings();
 
-    // Jika pengingat sedang aktif, jadwalkan ulang dengan jam baru
-    // (id yang sama akan menimpa jadwal lama secara otomatis)
     if (_reminderOn) {
       try {
         await _enableReminder();
       } catch (_) {
         if (!mounted) return;
-        // Gagal menjadwalkan ulang → matikan pengingat
         setState(() => _reminderOn = false);
         await _saveSettings();
-        if (!mounted) return; // Guard setelah await
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Gagal mengaktifkan pengingat'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.red,
           ),
         );
       }
     }
   }
 
-  // ─── Tombol uji notifikasi ────────────────────────────────────────────────
-
-  /// Kirim notifikasi langsung untuk memastikan konfigurasi benar.
   Future<void> _sendTestNotification() async {
     await NotificationService().showInstantNotification(
       title: 'Tes Pengingat Leega',
@@ -184,77 +148,116 @@ class _ReminderPageState extends State<ReminderPage> {
     );
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Notifikasi uji dikirim')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Notifikasi uji dikirim')),
+    );
   }
-
-  // ─── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    // Tampilkan loading indicator selama membaca SharedPreferences
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.2,
+              color: AppColors.ink,
+            ),
+          ),
+        ),
+      );
     }
 
-    // Format jam untuk tampilan ListTile
     final timeStr =
         '${_hour.toString().padLeft(2, '0')}:${_minute.toString().padLeft(2, '0')}';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Pengingat Harian')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Card penjelasan ──
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.subtleBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: const Text(
+                'Aktifkan pengingat harian agar kamu tidak lupa mencatat '
+                'kondisi pencernaan setiap hari. Notifikasi akan dikirim '
+                'setiap hari pada jam yang kamu pilih.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.inkSecondary,
+                  height: 1.45,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
             Card(
-              color: const Color(0xFFE8EEE5),
-              elevation: 0,
-              child: const Padding(
-                padding: EdgeInsets.all(14),
-                child: Text(
-                  'Aktifkan pengingat harian agar kamu tidak lupa mencatat '
-                  'kondisi pencernaan setiap hari. Notifikasi akan dikirim '
-                  'setiap hari pada jam yang kamu pilih.',
-                  style: TextStyle(color: Color(0xFF303A32)),
-                ),
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: const Text(
+                      'Aktifkan pengingat harian',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    value: _reminderOn,
+                    onChanged: _onSwitchChanged,
+                  ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.schedule,
+                      size: 20,
+                      color: AppColors.ink,
+                    ),
+                    title: const Text(
+                      'Jam pengingat',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.subtleBg,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Text(
+                        timeStr,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                    ),
+                    onTap: _pickTime,
+                  ),
+                ],
               ),
             ),
-
-            const SizedBox(height: 8),
-
-            // ── Switch aktifkan pengingat ──
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Aktifkan pengingat harian'),
-              value: _reminderOn,
-              onChanged: _onSwitchChanged,
-            ),
-
-            // ── Pemilih jam pengingat ──
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.access_time),
-              title: const Text('Jam pengingat'),
-              // Jam selalu bisa diubah, terlepas dari switch on/off
-              trailing: Text(
-                timeStr,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              onTap: _pickTime,
-            ),
-
-            const SizedBox(height: 24),
-
-            // ── Tombol kirim notifikasi uji ──
-            ElevatedButton(
+            const SizedBox(height: 22),
+            ElevatedButton.icon(
               onPressed: _sendTestNotification,
-              child: const Text('Kirim Notifikasi Uji'),
+              icon: const Icon(Icons.notifications_active_outlined, size: 18),
+              label: const Text('Kirim Notifikasi Uji'),
             ),
           ],
         ),

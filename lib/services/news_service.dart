@@ -11,7 +11,7 @@ class HealthArticle {
   final String sourceName;
   final String publishedAt;
 
-  HealthArticle({
+  const HealthArticle({
     required this.title,
     required this.description,
     required this.content,
@@ -43,25 +43,80 @@ class NewsService {
   static const String _apiKey = '7daccd43dae5e73b2c9220fc692e8273';
   static const String _baseUrl = 'https://gnews.io/api/v4/search';
 
-  Future<List<HealthArticle>> fetchDigestiveNews() async {
-    final uri = Uri.parse(_baseUrl).replace(
-      queryParameters: {
-        'q': '(sembelit OR diare OR pencernaan OR "kesehatan usus")',
-        'lang': 'id',
-        'country': 'id',
-        'max': '10',
-        'apikey': _apiKey,
-      },
-    );
+  // Daftar pilihan topik artikel untuk filter di HomePage (Label -> Query API)
+  static const Map<String, String> topics = {
+    'Semua': '(sembelit OR diare OR pencernaan OR "kesehatan usus")',
+    'Sembelit': '(sembelit OR konstipasi OR "susah BAB")',
+    'Diare': '(diare OR "sakit perut" OR hidrasi)',
+    'Serat & Nutrisi': '(serat OR probiotik OR "makanan pencernaan")',
+  };
 
-    final response = await http.get(uri);
+  // Fallback lokal jika offline, timeout, atau kuota API habis
+  static const List<HealthArticle> _fallbackArticles = [
+    HealthArticle(
+      title: 'Pentingnya Serat dan Air Putih untuk Melancarkan Pencernaan',
+      description:
+          'Asupan serat harian dan cukup cairan membantu menjaga rutinitas BAB tetap teratur.',
+      content:
+          'Serat dari buah, sayuran, dan biji-bijian utuh membantu melunakkan feses. Imbangi dengan minum air putih yang cukup setiap hari agar saluran cerna bekerja optimal.',
+      url: 'https://ayosehat.kemkes.go.id/',
+      imageUrl: '',
+      sourceName: 'Panduan Leega',
+      publishedAt: '',
+    ),
+    HealthArticle(
+      title: 'Menjaga Hidrasi Saat Frekuensi BAB Meningkat',
+      description:
+          'Saat BAB lebih sering atau cair, tubuh kehilangan cairan lebih cepat dari biasanya.',
+      content:
+          'Perbanyak minum air putih, sup hangat, atau oralit untuk mengganti cairan dan elektrolit. Segera konsultasi ke dokter jika keluhan tidak membaik.',
+      url: 'https://ayosehat.kemkes.go.id/',
+      imageUrl: '',
+      sourceName: 'Panduan Leega',
+      publishedAt: '',
+    ),
+    HealthArticle(
+      title: 'Kapan Sebaiknya Berkonsultasi ke Dokter?',
+      description:
+          'Kenali tanda perubahan pola pencernaan yang perlu diperiksakan ke tenaga medis.',
+      content:
+          'Perubahan pola BAB berkepanjangan, nyeri perut berat, atau adanya darah pada tinja adalah sinyal untuk segera memeriksakan diri ke dokter.',
+      url: 'https://ayosehat.kemkes.go.id/',
+      imageUrl: '',
+      sourceName: 'Panduan Leega',
+      publishedAt: '',
+    ),
+  ];
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final List articles = data['articles'] ?? [];
-      return articles.map((json) => HealthArticle.fromJson(json)).toList();
-    } else {
-      throw Exception('Gagal memuat berita (${response.statusCode})');
+  /// Mengambil daftar artikel kesehatan pencernaan dari GNews API.
+  /// Jika gagal (offline / timeout 6 detik / limit API), otomatis pakai 3 artikel lokal.
+  Future<List<HealthArticle>> fetchDigestiveNews({String? query}) async {
+    try {
+      final uri = Uri.parse(_baseUrl).replace(
+        queryParameters: {
+          'q': query ?? topics['Semua']!,
+          'lang': 'id',
+          'country': 'id',
+          'max': '10',
+          'apikey': _apiKey,
+        },
+      );
+
+      final response = await http.get(uri).timeout(const Duration(seconds: 6));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final List articles = data['articles'] ?? [];
+        if (articles.isNotEmpty) {
+          return articles
+              .map((json) => HealthArticle.fromJson(json as Map<String, dynamic>))
+              .toList();
+        }
+      }
+      return _fallbackArticles;
+    } catch (_) {
+      // Offline atau timeout -> tetap tampilkan panduan lokal agar halaman tidak kosong
+      return _fallbackArticles;
     }
   }
 }

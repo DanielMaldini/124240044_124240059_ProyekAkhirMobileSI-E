@@ -22,6 +22,15 @@ class LogEntry extends HiveObject {
   @HiveField(5)
   String? address;
 
+  /// Kondisi BAB berdasarkan rasa/konsistensi:
+  /// 'Normal', 'Keras / Susah', 'Lembek', atau 'Cair / Diare'.
+  @HiveField(6)
+  String? condition;
+
+  /// Gejala penyerta opsional (mis. 'Kembung', 'Mulas', 'Tidak Tuntas').
+  @HiveField(7)
+  List<String>? symptoms;
+
   LogEntry({
     required this.username,
     required this.dateTime,
@@ -29,5 +38,7 @@ class LogEntry extends HiveObject {
     this.lat,
     this.lng,
     this.address,
+    this.condition,
+    this.symptoms,
   });
 }

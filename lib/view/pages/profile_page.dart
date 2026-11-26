@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import '../../controller/auth_controller.dart';
+import '../../utils/app_theme.dart';
 import 'login_page.dart';
 import 'reminder_page.dart';
 
@@ -14,88 +16,154 @@ class ProfilePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Profil')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Icon(
-              Icons.account_circle,
-              size: 88,
-              color: Color(0xFF718B73),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Obx(() {
+                  final user = auth.currentUser.value;
+                  final displayName = user?.name ?? '-';
+                  final initial = displayName.isNotEmpty
+                      ? displayName[0].toUpperCase()
+                      : '?';
+                  return Row(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: const BoxDecoration(
+                          color: AppColors.ink,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          initial,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              displayName,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.ink,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '@${user?.username ?? '-'}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.inkSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ),
             ),
-            const SizedBox(height: 12),
-            Obx(() {
-              final user = auth.currentUser.value;
-              return Column(
-                children: [
-                  Text(
-                    user?.name ?? '-',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '@${user?.username ?? '-'}',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey[700]),
-                  ),
-                ],
-              );
-            }),
-            const SizedBox(height: 24),
+            const SizedBox(height: 14),
             Card(
               child: ListTile(
-                leading: const Icon(
-                  Icons.notifications_active_outlined,
-                  color: Color(0xFF718B73),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.subtleBg,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.notifications_none_rounded,
+                    color: AppColors.ink,
+                    size: 20,
+                  ),
                 ),
                 title: const Text(
                   'Pengingat Harian',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    color: AppColors.ink,
+                  ),
                 ),
-                subtitle: const Text('Atur jam notifikasi pengingat'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                subtitle: const Text(
+                  'Atur jam notifikasi pengingat',
+                  style: TextStyle(fontSize: 12, color: AppColors.inkSecondary),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right,
+                  color: AppColors.inkMuted,
+                ),
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const ReminderPage()),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(14),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 20,
-                      color: Color(0xFF718B73),
-                    ),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Leega bukan alat diagnosis medis. Jika ada darah pada '
-                        'tinja, nyeri berkepanjangan, atau keluhan lain, '
-                        'konsultasikan ke dokter.',
-                        style: TextStyle(fontSize: 12),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.subtleBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: AppColors.inkSecondary,
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Leega bukan alat diagnosis medis. Jika ada darah pada '
+                      'tinja, nyeri berkepanjangan, atau keluhan lain, '
+                      'konsultasikan ke dokter.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.inkSecondary,
+                        height: 1.45,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 28),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.logout),
-              label: const Text('Logout'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade700,
-                foregroundColor: Colors.white,
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.logout, size: 18, color: AppColors.red),
+              label: const Text(
+                'Logout',
+                style: TextStyle(
+                  color: AppColors.red,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFFFECACA)),
+                backgroundColor: AppColors.redSoft,
               ),
               onPressed: () async {
                 await auth.logout();
